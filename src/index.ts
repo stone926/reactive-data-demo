@@ -24,7 +24,7 @@ import { ref, computed, watchEffect, watch, reactive } from "./reactive";
 let o = reactive({ a: 1, b: 2, o: { c: 3, o: { c: 999 } } } as any)
 let p = reactive([1, 2, 3])
 watchEffect(() => {
-  // console.log("o.a=", o.a, ",o.b=", o.b, ",o.o.c=", o.o.c, ",o.o.o.c=", o.o.o.c, ",o.o.o=", o.o.o)
+  console.log("o.a=", o.a, ",o.b=", o.b, ",o.o.c=", o.o.c, ",o.o.o.c=", o.o.o.c, ",o.o.o=", o.o.o)
   // console.log("p=", p)
 })
 watch(p, (newValue, oldValue, prop) => {
@@ -33,13 +33,15 @@ watch(p, (newValue, oldValue, prop) => {
 
 // o.o.o.c++
 // o.o.c++
-// o.o.o = { c: 2, d: 1 }
+o.o.o = 1
+o.o.o++
+o.o.o = { d: 888, i: 1 }
 // o.o.o.d++;
-p.push(9) // no reactivity
-console.log(p)
-p.push(0)
-console.log(p)
-p.sort()
+// p.push(9)
+// console.log(p)
+// p.push(0)
+// console.log(p)
+// p.sort()
 // p[0]++ // reactive
 
 

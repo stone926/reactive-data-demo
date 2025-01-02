@@ -100,7 +100,12 @@ const reactive: ReactiveFunction = <T extends Object>(obj: T) => {
       let shouldUpdate = specificTrigger(newValue, target[prop], symbol, prop)
       if (shouldUpdate) {
         if (isObject(target[prop]) && map.has(prop)) {
-          map.set(prop, reactive(newValue))
+          if (isObject(newValue)) {
+            map.set(prop, reactive(newValue))
+          } else {
+            map.delete(prop)
+            target[prop] = newValue
+          }
         } else {
           target[prop] = newValue
         }
