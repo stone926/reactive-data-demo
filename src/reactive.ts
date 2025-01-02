@@ -71,12 +71,10 @@ const computed: ComputedFunction = (compute) => {
 }
 
 const watchEffect: WatchEffectFunction = (effect, options) => {
-  const wrappedEffect = () => {
-    activeEffect = effect
-    effect()
-    activeEffect = null
-  }
-  wrappedEffect()
+  let prevEffect = activeEffect;
+  activeEffect = effect
+  effect()
+  activeEffect = prevEffect
 }
 
 const watch: WatchFunction = (watched, effect, options) => {
@@ -98,19 +96,18 @@ const reactive: ReactiveFunction = <T extends Object>(obj: T) => {
     set(target: any, prop, newValue, receiver) {
       if (Object.is(target[prop], newValue)) return true;
       let shouldUpdate = specificTrigger(newValue, target[prop], symbol, prop)
-      if (shouldUpdate) {
-        if (isObject(target[prop]) && map.has(prop)) {
-          if (isObject(newValue)) {
-            map.set(prop, reactive(newValue))
-          } else {
-            map.delete(prop)
-            target[prop] = newValue
-          }
+      if (!shouldUpdate) return true
+      if (isObject(target[prop]) && map.has(prop)) {
+        if (isObject(newValue)) {
+          map.set(prop, reactive(newValue))
         } else {
+          map.delete(prop)
           target[prop] = newValue
         }
-        trigger(symbol, prop)
+      } else {
+        target[prop] = newValue
       }
+      trigger(symbol, prop)
       return true
     },
     get(target: any, prop, receiver) {

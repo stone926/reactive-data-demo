@@ -35,7 +35,7 @@ watch(p, (newValue, oldValue, prop) => {
 // o.o.c++
 o.o.o = 1
 o.o.o++
-o.o.o = { d: 888, i: 1 }
+o.o.o = { c: 888, i: 1 }
 // o.o.o.d++;
 // p.push(9)
 // console.log(p)
