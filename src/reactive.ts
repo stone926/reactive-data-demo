@@ -1,31 +1,32 @@
-import type { Reactive } from "./types/data"
-import type { ComputedFunction, Effect, ReactiveFunction, RefFunction, WatchCallback, WatchEffectCallback, WatchEffectFunction, WatchFunction } from "./types/function"
+import type { Computed, Reactive, ReactiveData, Ref } from "./types/data"
+import type { ComputedFunction, Effect, ReactiveFunction, RefFunction, WatchAllCallback, WatchAllFunction, WatchCallback, WatchEffectCallback, WatchEffectFunction, WatchFunction } from "./types/function"
 import { refSymbol, computedSymbol, reactiveSymbol, getRaw, getSymbol } from "./symbols"
 
 type ObjKey = string | Symbol
 
 const subscribers = new WeakMap<Symbol, Map<ObjKey, Set<Effect>>>()
+const watchAllSubscribers = new Set<WatchAllCallback>()
 const specificSubscribersPre = new Map<Symbol, WatchCallback[]>()
 
 let activeEffect: Effect | null = null;
 
-const getSubscribers = (symbol: Symbol, key: string | Symbol) => {
+const getSubscribers = (symbol: Symbol, key: ObjKey) => {
   if (!subscribers.has(symbol)) { // if ref is not in subscribers
     subscribers.set(symbol, new Map())
   }
-  const map = subscribers.get(symbol) as Map<string | Symbol, Set<Effect>>
+  const map = subscribers.get(symbol) as Map<ObjKey, Set<Effect>>
   if (!map.has(key)) { // if ref is in subscribers but its key is not
     map.set(key, new Set())
   }
   return map.get(key) as Set<Effect>
 }
 
-const track = (symbol: Symbol, key: string | Symbol) => {
+const track = (symbol: Symbol, key: ObjKey) => {
   if (activeEffect === null) return
   getSubscribers(symbol, key).add(activeEffect)
 }
 
-const trigger = (symbol: Symbol, key: string | Symbol) => {
+const trigger = (symbol: Symbol, key: ObjKey) => {
   getSubscribers(symbol, key).forEach(effect => effect())
 }
 
@@ -34,6 +35,14 @@ const specificTrigger = <T>(newValue: T, oldValue: T, symbol: Symbol, prop: ObjK
   let shouldUpdate = true;
   (specificSubscribersPre.get(symbol) as WatchCallback[]).forEach(effect => {
     shouldUpdate = (effect(newValue, oldValue, prop) ?? true) && shouldUpdate
+  })
+  return shouldUpdate
+}
+
+const allTrigger = <T>(changed: ReactiveData<T>, newValue: T, oldValue: T, prop: ObjKey | undefined = undefined) => {
+  let shouldUpdate = true;
+  watchAllSubscribers.forEach(effect => {
+    shouldUpdate = (effect(changed, newValue, oldValue, prop) ?? true) && shouldUpdate
   })
   return shouldUpdate
 }
@@ -49,6 +58,7 @@ const ref: RefFunction = (value) => {
     set value(newValue) {
       if (Object.is(value, newValue)) return;
       let shouldUpdate = specificTrigger(newValue, this[getRaw], this[getSymbol])
+      shouldUpdate = allTrigger(this, newValue, this[getRaw], undefined) && shouldUpdate
       if (shouldUpdate) {
         this[getRaw] = newValue;
         trigger(this[getSymbol], "value")
@@ -57,17 +67,13 @@ const ref: RefFunction = (value) => {
   }
 }
 
-const computed: ComputedFunction = (compute) => {
-  let computedObj: any = null, symbol = computedSymbol();
+const computed: ComputedFunction = <T>(compute: () => T) => {
+  let computedObj: Ref<undefined | T> = ref(undefined)
+  computedObj[getSymbol] = computedSymbol()
   watchEffect(() => {
-    if (computedObj === null) {
-      computedObj = ref(compute())
-      computedObj.symbol = symbol
-    } else {
-      computedObj.value = compute()
-    }
+    computedObj.value = compute()
   })
-  return computedObj;
+  return computedObj as Computed<T>;
 }
 
 const watchEffect: WatchEffectFunction = (effect, options) => {
@@ -88,6 +94,10 @@ const watch: WatchFunction = (watched, effect, options) => {
   }
 }
 
+const watchAll: WatchAllFunction = (effect) => {
+  watchAllSubscribers.add(effect)
+}
+
 const reactive: ReactiveFunction = <T extends Object>(obj: T) => {
   const symbol = reactiveSymbol()
   const map = new Map<ObjKey, Reactive<T>>()
@@ -96,6 +106,7 @@ const reactive: ReactiveFunction = <T extends Object>(obj: T) => {
     set(target: any, prop, newValue, receiver) {
       if (Object.is(target[prop], newValue)) return true;
       let shouldUpdate = specificTrigger(newValue, target[prop], symbol, prop)
+      shouldUpdate = allTrigger(receiver, newValue, target[prop], prop) && shouldUpdate
       if (!shouldUpdate) return true
       if (isObject(target[prop]) && map.has(prop)) {
         if (isObject(newValue)) {
@@ -129,5 +140,5 @@ const reactive: ReactiveFunction = <T extends Object>(obj: T) => {
 }
 
 export {
-  ref, computed, watchEffect, watch, reactive
+  ref, computed, watchEffect, watch, reactive, watchAll
 }

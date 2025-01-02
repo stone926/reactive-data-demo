@@ -2,7 +2,7 @@ import { getRaw, getSymbol } from "../symbols";
 
 interface ReactiveBase<T> {
   [getRaw]: T,
-  readonly [getSymbol]: Symbol
+  [getSymbol]: Symbol
 }
 
 export type Ref<T> = {
